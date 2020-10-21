@@ -9,6 +9,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -30,6 +32,8 @@ public class ItemTask {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
+    private static Logger logger = LoggerFactory.getLogger(ItemTask.class);
+
     //  当下载任务完成后，间隔多长时间进行下一次的任务
     @Scheduled(fixedDelay =1000 * 5 )
     public void itemTask() throws Exception{
@@ -40,9 +44,13 @@ public class ItemTask {
 
         //  遍历页面对手机的搜索进行遍历结果
         for (int i = 1; i < 10; i=i+2) {
-            String html = this.httpUtils.doGetHtml(url+i);
-            //  解析页面，获取商品数据并存储
-            this.parse(html);
+            try {
+                String html = this.httpUtils.doGetHtml(url+i);
+                //  解析页面，获取商品数据并存储
+                parse(html);
+            } catch (Exception e) {
+                logger.error("解析页面出错, 跳过", e);
+            }
         }
         System.out.println("手机数据抓取完成！！！");
     }
@@ -63,53 +71,61 @@ public class ItemTask {
             //  获取sku信息
             Elements skuEles = spuEles.select("li.ps-item");
             for (Element skuEle : skuEles) {
-                //  获取sku
-                long sku = Long.parseLong(skuEle.select("[data-sku]").attr("data-sku"));
-                //  根据sku查询商品数据
-                Item item = new Item();
-                item.setSku(sku);
-                List<Item> list = this.itemService.findAll(item);
-                if (list.size()>0){
-                    //如果商品存在，就进行下一个循环，该商品不保存，因为已存在
-                    continue;
+                try {
+                    saveSku(spu, skuEle);
+                } catch (Exception e) {
+                    logger.error("保存信息出错, 跳过", e);
                 }
-                //  设置商品的spu
-                item.setSpu(spu);
-
-                //  获取商品的详情信息
-                String itemUrl = "https://item.jd.com/"+sku+".html";
-                item.setUrl(itemUrl);
-
-                //  商品图片
-                String picUrl = skuEle.select("img[data-sku]").first().attr("data-lazy-img");
-                //	图片路径可能会为空的情况
-                if(!StringUtils.isNotBlank(picUrl)){
-                    picUrl =skuEle.select("img[data-sku]").first().attr("data-lazy-img-slave");
-                }
-                picUrl ="https:"+picUrl.replace("/n9/","/n1/");	//	替换图片格式
-                byte[] image = this.httpUtils.doGetImage(picUrl);
-                String picName = UUID.randomUUID().toString() + ".jpg";
-                item.setPic(picName);
-
-                //  商品价格
-                String priceJson = this.httpUtils.doGetHtml("https://p.3.cn/prices/mgets?skuIds=J_" + sku);
-                double price = MAPPER.readTree(priceJson).get(0).get("p").asDouble();
-                item.setPrice(price);
-
-                //  商品标题
-                String itemInfo = this.httpUtils.doGetHtml(item.getUrl());
-                String title = Jsoup.parse(itemInfo).select("#itemName").text();
-                item.setTitle(title);
-
-                //  商品创建时间
-                item.setCreated(new Date());
-                //  商品修改时间
-                item.setUpdated(item.getCreated());
-
-                //  保存商品数据到数据库中
-                this.itemService.save(item);
-                this.itemService.saveImage(picName, image);
             }
         }
+    }
+
+    private void saveSku(long spuId, Element skuEle) throws Exception {
+        //  获取sku
+        long sku = Long.parseLong(skuEle.select("[data-sku]").attr("data-sku"));
+        //  根据sku查询商品数据
+        Item item = new Item();
+        item.setSku(sku);
+        List<Item> list = this.itemService.findAll(item);
+        if (list.size()>0){
+            //如果商品存在，就进行下一个循环，该商品不保存，因为已存在
+            return;
+        }
+        //  设置商品的spu
+        item.setSpu(spuId);
+
+        //  获取商品的详情信息
+        String itemUrl = "https://item.jd.com/"+sku+".html";
+        item.setUrl(itemUrl);
+
+        //  商品图片
+        String picUrl = skuEle.select("img[data-sku]").first().attr("data-lazy-img");
+        //	图片路径可能会为空的情况
+        if(!StringUtils.isNotBlank(picUrl)){
+            picUrl = skuEle.select("img[data-sku]").first().attr("data-lazy-img-slave");
+        }
+        picUrl ="https:"+picUrl.replace("/n9/","/n1/");	//	替换图片格式
+        byte[] image = this.httpUtils.doGetImage(picUrl);
+        String picName = UUID.randomUUID().toString() + ".jpg";
+        item.setPic(picName);
+
+        //  商品价格
+        String priceJson = this.httpUtils.doGetHtml("https://p.3.cn/prices/mgets?skuIds=J_" + sku);
+        double price = MAPPER.readTree(priceJson).get(0).get("p").asDouble();
+        item.setPrice(price);
+
+        //  商品标题
+        String itemInfo = this.httpUtils.doGetHtml(item.getUrl());
+        String title = Jsoup.parse(itemInfo).select("#itemName").text();
+        item.setTitle(title);
+
+        //  商品创建时间
+        item.setCreated(new Date());
+        //  商品修改时间
+        item.setUpdated(item.getCreated());
+
+        //  保存商品数据到数据库中
+        this.itemService.save(item);
+        this.itemService.saveImage(picName, image);
     }
 }
