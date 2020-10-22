@@ -27,7 +27,7 @@ public class ItemTask {
     private HttpUtils httpUtils;
 
     @Autowired
-    @Qualifier("dBItemService")
+    @Qualifier("fileItemService")
     private ItemService itemService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -98,7 +98,6 @@ public class ItemTask {
 
         //  获取商品的详情信息
         String itemUrl = "https://item.jd.com/"+sku+".html";
-
         item.setUrl(itemUrl);
 
         //  商品图片
@@ -114,9 +113,8 @@ public class ItemTask {
         item.setPrice(price);
 
         //  商品标题
-        String itemInfo = httpUtils.doGetHtml(itemUrl);
-        String title = Jsoup.parse(itemInfo).select("#div.sku-name").text();
-
+        String itemInfo = this.httpUtils.doGetHtml(item.getUrl());
+        String title = Jsoup.parse(itemInfo).getElementsByClass("sku-name").get(0).text();
         item.setTitle(title);
 
         //  商品创建时间
