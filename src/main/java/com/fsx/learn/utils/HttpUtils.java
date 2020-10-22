@@ -18,7 +18,6 @@ public class HttpUtils {
 
     public HttpUtils() {
         this.cm = new PoolingHttpClientConnectionManager();
-
         //    设置最大连接数
         cm.setMaxTotal(100);
         //    设置每个主机的并发数
@@ -40,7 +39,7 @@ public class HttpUtils {
         httpGet.setConfig(this.getConfig());
 
         // 浏览器表示
-        httpGet.addHeader("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1");
+        httpGet.addHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36");
         // 传输的类型
         httpGet.addHeader("Cookie","Cookie地址");  //Cookie地址是你搜索过后，开发者工具里面的request Header地址，这里太长了省略不写
 

@@ -11,9 +11,9 @@ public interface ItemService {
 
     String IMAGE_DIR = "./images";
 
-    void save(Item items);
+    void save(Item item);
 
-    List<Item> findAll(Item items);
+    List<Item> findAll(Item item);
 
     default void saveImage(String picName, byte[] image) {
 
